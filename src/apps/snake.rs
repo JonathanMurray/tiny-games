@@ -127,14 +127,14 @@ Use WASD keys to control the snake!
                 let symbol = Self::direction_symbol(self.direction);
                 self.buf.set(new_head, Cell(symbol as u8, SNAKE_COLOR));
             }
-            None
         } else {
             self.alive = false;
-            Some(AppEvent::SetTitle(format!(
-                "Score: {:?}",
-                self.snake.len() - 1
-            )))
         }
+
+        (!self.alive).then_some(AppEvent::SetTitle(format!(
+            "Score: {:?}",
+            self.snake.len() - 1
+        )))
     }
 
     fn handle_pressed_key(&mut self, key: char) -> Option<AppEvent> {
