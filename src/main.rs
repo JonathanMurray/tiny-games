@@ -71,7 +71,10 @@ fn main() {
     match &ui_type[..] {
         "window" => window::run_main_loop(app, frame_rate),
         "debug" => debug::run_main_loop(app),
-        "terminal" => terminal::run_main_loop(app, frame_rate),
+        "terminal" => {
+            let cell_width = 2;
+            terminal::run_main_loop(app, frame_rate, cell_width)
+        }
         unknown => panic!("Unknown ui: {}", unknown),
     }
 }
@@ -174,21 +177,19 @@ impl GraphicsBuf {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-// TODO: Model Cell better, utilising background color and limited shapes.
-pub struct Cell(u8, Color);
+pub enum Cell {
+    Blank,
+    Colored(Color),
+}
 
 impl Default for Cell {
     fn default() -> Self {
-        Self(b' ', (255, 255, 255))
+        Self::Blank
     }
 }
 
 impl Cell {
-    pub fn on() -> Self {
-        Self(b'#', (255, 255, 255))
-    }
-
-    pub fn off() -> Self {
-        Self(b' ', (0, 0, 0))
+    pub fn filled() -> Self {
+        Self::Colored((255, 255, 255))
     }
 }

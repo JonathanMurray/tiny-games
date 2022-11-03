@@ -14,15 +14,12 @@ pub struct Tetris {
     score: u32,
 }
 
-const SYMBOL: u8 = b'#';
-const BLANK_CELL: Cell = Cell(b' ', (255, 255, 255));
-
 impl Tetris {
     pub fn new() -> (Self, AppInit) {
         let mut buf = GraphicsBuf::new((10, 20));
         let falling = Tetromino::at_top(generate_next());
         for block in falling.blocks() {
-            buf.set(block, Cell(SYMBOL, falling.color()));
+            buf.set(block, Cell::Colored(falling.color()));
         }
         let help_text = "\
 Controls:
@@ -73,12 +70,12 @@ S: fall faster
     fn render_upcoming_buf(shape: Shape, buf: &mut GraphicsBuf) {
         {
             for i in 0..buf.dimensions().0 * buf.dimensions().1 {
-                buf.set_by_index(i as usize, Cell::off());
+                buf.set_by_index(i as usize, Cell::Blank);
             }
 
             let tetromino = Tetromino::in_upcoming_hint(shape);
             for point in tetromino.blocks() {
-                buf.set(point, Cell(SYMBOL, tetromino.color()));
+                buf.set(point, Cell::Colored(tetromino.color()));
             }
         }
     }
@@ -116,7 +113,7 @@ impl App for Tetris {
             let game_over = self.would_collide(next);
 
             for block in next.blocks() {
-                self.graphics.buf.set(block, Cell(SYMBOL, next.color()));
+                self.graphics.buf.set(block, Cell::Colored(next.color()));
             }
 
             if game_over {
@@ -177,12 +174,12 @@ impl Tetris {
             false
         } else {
             for block in self.falling.unwrap().blocks() {
-                self.graphics.buf.set(block, BLANK_CELL);
+                self.graphics.buf.set(block, Cell::Blank);
             }
             for moved_block in moved.blocks() {
                 self.graphics
                     .buf
-                    .set(moved_block, Cell(SYMBOL, moved.color()));
+                    .set(moved_block, Cell::Colored(moved.color()));
             }
             self.falling = Some(moved);
             true
@@ -194,12 +191,12 @@ impl Tetris {
 
         if !self.would_collide(rotated) {
             for block in self.falling.unwrap().blocks() {
-                self.graphics.buf.set(block, BLANK_CELL);
+                self.graphics.buf.set(block, Cell::Blank);
             }
             for rotated_block in rotated.blocks() {
                 self.graphics
                     .buf
-                    .set(rotated_block, Cell(SYMBOL, rotated.color()));
+                    .set(rotated_block, Cell::Colored(rotated.color()));
             }
             self.falling = Some(rotated);
         }
@@ -210,7 +207,7 @@ impl Tetris {
         while y >= 0 {
             let mut is_complete_row = true;
             for x in 0..self.graphics.buf.dimensions.0 {
-                if self.graphics.buf.get((x as i16, y as i16)).unwrap() == BLANK_CELL {
+                if self.graphics.buf.get((x as i16, y as i16)).unwrap() == Cell::Blank {
                     is_complete_row = false;
                     break;
                 }
@@ -231,7 +228,7 @@ impl Tetris {
                             .graphics
                             .buf
                             .get((x, shift_y - 1))
-                            .unwrap_or(BLANK_CELL);
+                            .unwrap_or(Cell::Blank);
                         self.graphics.buf.set((x, shift_y), value_above);
                     }
                 }
@@ -252,7 +249,7 @@ impl Tetris {
                 .graphics
                 .buf
                 .get(*block)
-                .map(|cell| cell != BLANK_CELL)
+                .map(|cell| cell != Cell::Blank)
                 .unwrap_or(true);
             collision && !collision_with_falling
         })

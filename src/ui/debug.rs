@@ -1,4 +1,4 @@
-use crate::{App, Cell, GraphicsBuf};
+use crate::{App, GraphicsBuf};
 use std::io::Write;
 
 pub fn run_main_loop(mut app: Box<dyn App>) {
@@ -35,8 +35,8 @@ fn dump(buf: &GraphicsBuf) {
     for y in 0..buf.dimensions().1 {
         print!("|");
         for x in 0..buf.dimensions().0 {
-            let Cell(char, _color) = buf.get((x as i16, y as i16)).unwrap();
-            print!("{}", char as char);
+            let cell = buf.get((x as i16, y as i16)).unwrap();
+            print!("{:?}", cell);
         }
         println!("|");
     }

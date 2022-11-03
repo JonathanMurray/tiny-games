@@ -150,18 +150,21 @@ impl AppEventHandler {
     fn render_buf(&self, canvas: &mut Canvas, buf: &GraphicsBuf, destination: [f32; 2]) {
         for y in 0..buf.dimensions().1 {
             for x in 0..buf.dimensions().0 {
-                let Cell(ch, (r, g, b)) = buf.get((x as i16, y as i16)).unwrap();
-                if ch != b' ' {
-                    canvas.draw(
-                        &Quad,
-                        DrawParam::default()
-                            .color(Color::from_rgb(r, g, b))
-                            .scale([self.scaling, self.scaling])
-                            .dest([
-                                destination[0] + self.scaling * x as f32,
-                                destination[1] + self.scaling * y as f32,
-                            ]),
-                    );
+                let cell = buf.get((x as i16, y as i16)).unwrap();
+                match cell {
+                    Cell::Blank => {}
+                    Cell::Colored((r, g, b)) => {
+                        canvas.draw(
+                            &Quad,
+                            DrawParam::default()
+                                .color(Color::from_rgb(r, g, b))
+                                .scale([self.scaling, self.scaling])
+                                .dest([
+                                    destination[0] + self.scaling * x as f32,
+                                    destination[1] + self.scaling * y as f32,
+                                ]),
+                        );
+                    }
                 }
             }
         }

@@ -16,7 +16,7 @@ impl Conway {
         let mut buf0 = GraphicsBuf::new(dimensions);
         for &cell in live_cells {
             let cell = (cell.0 + cells_offset.0, cell.1 + cells_offset.1);
-            buf0.set(cell, Cell::on());
+            buf0.set(cell, Cell::filled());
         }
         let tmp_buf = GraphicsBuf::new(dimensions);
 
@@ -62,7 +62,7 @@ impl Conway {
         ] {
             let (nx, ny) = neighbor;
             if let Some(value) = self.graphics.buf.get((nx, ny)) {
-                if value == Cell::on() {
+                if value == Cell::filled() {
                     count += 1;
                 }
             }
@@ -78,14 +78,20 @@ impl App for Conway {
             for x in 0..self.dimensions.0 {
                 let x = x as i16;
                 let y = y as i16;
-                let is_live = self.graphics.buf.get((x, y)).unwrap() != Cell::off();
+                let is_live = self.graphics.buf.get((x, y)).unwrap() != Cell::Blank;
                 let live_neighbors = self.count_live_neighbors((x, y));
                 if is_live {
                     // "Any live cell with two or three live neighbours survives."
                     // "All other live cells die in the next generation"
                     let stays_alive = [2, 3].contains(&live_neighbors);
-                    self.tmp_buf
-                        .set((x, y), if stays_alive { Cell::on() } else { Cell::off() });
+                    self.tmp_buf.set(
+                        (x, y),
+                        if stays_alive {
+                            Cell::filled()
+                        } else {
+                            Cell::Blank
+                        },
+                    );
                 } else {
                     // "Any dead cell with three live neighbours becomes a live cell."
                     // "All other dead cells stay dead."
@@ -93,9 +99,9 @@ impl App for Conway {
                     self.tmp_buf.set(
                         (x, y),
                         if becomes_alive {
-                            Cell::on()
+                            Cell::filled()
                         } else {
-                            Cell::off()
+                            Cell::Blank
                         },
                     );
                 }

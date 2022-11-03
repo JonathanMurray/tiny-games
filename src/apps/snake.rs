@@ -13,7 +13,6 @@ pub struct Snake {
     score: u32,
 }
 
-const FOOD_SYMBOL: char = 'O';
 const SNAKE_COLOR: Color = (255, 255, 100);
 const FOOD_COLOR: Color = (255, 100, 100);
 
@@ -25,10 +24,7 @@ impl Snake {
 
         let mut buf = GraphicsBuf::new(game_size);
         let direction = Direction::Right;
-        buf.set(
-            snake_pos,
-            Cell(Self::direction_symbol(direction) as u8, SNAKE_COLOR),
-        );
+        buf.set(snake_pos, Cell::Colored(SNAKE_COLOR));
 
         let help_text = "Use WASD keys to control the snake!".to_string();
 
@@ -58,9 +54,7 @@ impl Snake {
 
         let food = this.pick_new_food_location();
         this.food = food;
-        this.graphics
-            .buf
-            .set(food, Cell(FOOD_SYMBOL as u8, FOOD_COLOR));
+        this.graphics.buf.set(food, Cell::Colored(FOOD_COLOR));
         (this, AppInit { frame_rate: 10 })
     }
 
@@ -97,15 +91,6 @@ impl Snake {
             .choose(&mut rand::thread_rng())
             .expect("Vacant food location")
     }
-
-    fn direction_symbol(direction: Direction) -> char {
-        match direction {
-            Direction::Up => '^',
-            Direction::Left => '<',
-            Direction::Down => 'V',
-            Direction::Right => '>',
-        }
-    }
 }
 
 impl App for Snake {
@@ -115,22 +100,18 @@ impl App for Snake {
         }
 
         let head = *self.snake.last().unwrap();
-        self.graphics.buf.set(head, Cell(b'O', SNAKE_COLOR));
+        self.graphics.buf.set(head, Cell::Colored(SNAKE_COLOR));
         let new_head = translated(head, self.direction);
         if self.is_within_game_bounds(new_head) {
             if new_head == self.food {
                 self.food = self.pick_new_food_location();
-                self.graphics
-                    .buf
-                    .set(self.food, Cell(FOOD_SYMBOL as u8, FOOD_COLOR));
+                self.graphics.buf.set(self.food, Cell::Colored(FOOD_COLOR));
                 self.score += 1;
                 self.graphics.side_panel.as_mut().unwrap().items[0] = PanelItem::TextItem {
                     text: format!("Score: {}", self.score),
                 };
             } else {
-                self.graphics
-                    .buf
-                    .set(self.snake[0], Cell(b' ', (255, 255, 255)));
+                self.graphics.buf.set(self.snake[0], Cell::Blank);
                 self.snake.remove(0);
             }
 
@@ -138,10 +119,7 @@ impl App for Snake {
                 self.alive = false;
             } else {
                 self.snake.push(new_head);
-                let symbol = Self::direction_symbol(self.direction);
-                self.graphics
-                    .buf
-                    .set(new_head, Cell(symbol as u8, SNAKE_COLOR));
+                self.graphics.buf.set(new_head, Cell::Colored(SNAKE_COLOR));
             }
         } else {
             self.alive = false;

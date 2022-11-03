@@ -31,7 +31,7 @@ impl App for Noise {
         if !self.empty_indices.is_empty() {
             let i = rand::thread_rng().gen_range(0..self.empty_indices.len());
             let buf_index = self.empty_indices[i];
-            self.graphics.buf.set_by_index(buf_index, Cell::on());
+            self.graphics.buf.set_by_index(buf_index, Cell::filled());
             self.empty_indices.swap_remove(i);
 
             if self.empty_indices.is_empty() {

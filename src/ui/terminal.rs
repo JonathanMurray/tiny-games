@@ -14,8 +14,8 @@ use tui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::text::Text;
 
-pub fn run_main_loop(mut app: Box<dyn App>, frame_rate: u32) {
-    let mut ui = TerminalUi::new();
+pub fn run_main_loop(mut app: Box<dyn App>, frame_rate: u32, cell_width: u16) {
+    let mut ui = TerminalUi::new(cell_width);
     ui.render(app.graphics());
 
     let mut previous_update = Instant::now();
@@ -51,14 +51,18 @@ pub fn run_main_loop(mut app: Box<dyn App>, frame_rate: u32) {
 
 struct TerminalUi {
     terminal: Terminal<CrosstermBackend<Stdout>>,
+    cell_width: u16,
 }
 
 impl TerminalUi {
-    fn new() -> Self {
+    fn new(cell_width: u16) -> Self {
         setup_panic_handler();
         let terminal = claim_terminal(std::io::stdout());
 
-        Self { terminal }
+        Self {
+            terminal,
+            cell_width,
+        }
     }
 
     fn render(&mut self, graphics: &Graphics) {
@@ -68,25 +72,17 @@ impl TerminalUi {
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded);
 
+                let graphics_width = graphics.buf.dimensions().0 as u16 * self.cell_width + 2;
                 let horizontal_sub_rects = Layout::default()
                     .direction(Direction::Horizontal)
-                    .constraints(
-                        [
-                            Constraint::Length(graphics.buf.dimensions().0 as u16 + 2),
-                            Constraint::Min(0),
-                        ]
-                        .as_ref(),
-                    )
+                    .constraints([Constraint::Length(graphics_width), Constraint::Min(0)].as_ref())
                     .split(frame.size());
 
                 let mut graphics_container_rect = horizontal_sub_rects[0];
 
                 let header_height = 2;
 
-                graphics_container_rect.width = min(
-                    graphics_container_rect.width,
-                    graphics.buf.dimensions().0 as u16 + 2,
-                );
+                graphics_container_rect.width = min(graphics_container_rect.width, graphics_width);
                 graphics_container_rect.height = min(
                     graphics_container_rect.height,
                     graphics.buf.dimensions().1 as u16 + 2 + header_height,
@@ -116,7 +112,10 @@ impl TerminalUi {
                 let mut header_rect = header_container_rect;
                 header_rect.height = min(header_rect.height, 1);
 
-                let content = BufWidget(&graphics.buf);
+                let content = BufWidget {
+                    app_buf: &graphics.buf,
+                    cell_width: self.cell_width,
+                };
                 let content_rect = container_sub_rects[1];
 
                 if let Some(panel) = graphics.side_panel() {
@@ -141,7 +140,10 @@ impl TerminalUi {
                             }
                             PanelItem::GraphicsItem { buf } => {
                                 constraints.push(Constraint::Length(buf.dimensions().1 as u16));
-                                let buf_widget = BufWidget(buf);
+                                let buf_widget = BufWidget {
+                                    app_buf: buf,
+                                    cell_width: self.cell_width,
+                                };
                                 widgets.push((
                                     PanelItemWidget::Buf(buf_widget),
                                     (buf.dimensions().0 as u16, buf.dimensions().1 as u16),
@@ -222,19 +224,27 @@ enum PanelItemWidget<'a> {
     Paragraph(Paragraph<'a>),
 }
 
-struct BufWidget<'a>(&'a GraphicsBuf);
+struct BufWidget<'a> {
+    app_buf: &'a GraphicsBuf,
+    cell_width: u16,
+}
 
 impl Widget for BufWidget<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        for y in 0..self.0.dimensions().1 {
-            for x in 0..self.0.dimensions().0 {
-                if (x as u16) < area.width && (y as u16) < area.height {
-                    let Cell(char, (r, g, b)) = self.0.get((x as i16, y as i16)).unwrap();
-                    let char = [char];
-                    let symbol = std::str::from_utf8(&char).unwrap();
-                    buf.get_mut(area.x + x as u16, area.y + y as u16)
-                        .set_symbol(symbol)
-                        .set_fg(tui::style::Color::Rgb(r, g, b));
+        for y in 0..self.app_buf.dimensions().1 as u16 {
+            for app_x in 0..self.app_buf.dimensions().0 as u16 {
+                let x = app_x * self.cell_width;
+                if x < area.width && y < area.height {
+                    let app_cell = self.app_buf.get((app_x as i16, y as i16)).unwrap();
+                    match app_cell {
+                        Cell::Blank => {}
+                        Cell::Colored((r, g, b)) => {
+                            for sub_cell_x in x..x + self.cell_width {
+                                buf.get_mut(area.x + sub_cell_x, area.y + y)
+                                    .set_bg(Color::Rgb(r, g, b));
+                            }
+                        }
+                    }
                 }
             }
         }
