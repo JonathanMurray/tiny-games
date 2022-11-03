@@ -4,25 +4,21 @@ use ggez::graphics::{self, Color, DrawMode, DrawParam, Mesh, Quad, Rect, Text};
 use ggez::input::keyboard::{KeyCode, KeyInput};
 use ggez::{Context, ContextBuilder, GameResult};
 
-use crate::apps::{AppEvent, Info, TextBar};
-use crate::{App, Cell};
+use crate::App;
+use crate::Cell;
 
 const GRAPHICS_MARGIN: f32 = 10.0;
 const CELL_SIZE: f32 = 30.0;
 const TEXT_AREA_WIDTH: f32 = 300.0;
 
-pub fn run_main_loop(app: Box<dyn App>) -> ! {
-    let (w, h) = app.render_buf().dimensions();
-
-    let Info {
-        title,
-        frame_rate,
-        text_bar,
-    } = app.info();
+pub fn run_main_loop(app: Box<dyn App>, frame_rate: u32) -> ! {
+    let side_panel = app.graphics().side_panel();
+    let title = app.graphics().title.to_string();
+    let (w, h) = app.graphics().buf.dimensions();
 
     let window_w = GRAPHICS_MARGIN * 2.0
         + CELL_SIZE * w as f32
-        + if matches!(text_bar, TextBar::Enabled { .. }) {
+        + if side_panel.is_some() {
             TEXT_AREA_WIDTH
         } else {
             0.0
@@ -35,16 +31,14 @@ pub fn run_main_loop(app: Box<dyn App>) -> ! {
         .build()
         .unwrap();
 
-    let help_text = match text_bar {
-        TextBar::Enabled { help_text } => help_text,
-        TextBar::Disabled => None,
-    };
+    let help_text = side_panel.and_then(|bar| bar.help_text.as_ref().cloned());
 
     let event_handler = AppEventHandler {
         app,
         scaling: CELL_SIZE,
         frame_rate,
         help_text,
+        title,
     };
 
     event::run(ctx, event_loop, event_handler);
@@ -55,56 +49,13 @@ struct AppEventHandler {
     scaling: f32,
     frame_rate: u32,
     help_text: Option<String>,
+    title: String,
 }
 
 impl EventHandler for AppEventHandler {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         while ctx.time.check_update_time(self.frame_rate) {
-            if let Some(event) = self.app.run_frame() {
-                match event {
-                    AppEvent::SetTitle(title) => ctx.gfx.set_window_title(&title),
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn key_down_event(
-        &mut self,
-        ctx: &mut Context,
-        input: KeyInput,
-        _repeated: bool,
-    ) -> GameResult {
-        if let KeyInput {
-            keycode: Some(key), ..
-        } = input
-        {
-            if key == KeyCode::Q {
-                ctx.request_quit();
-                return Ok(());
-            }
-
-            if let Some(ch) = keycode_to_char(key) {
-                if let Some(event) = self.app.handle_pressed_key(ch) {
-                    match event {
-                        AppEvent::SetTitle(title) => ctx.gfx.set_window_title(&title),
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn key_up_event(&mut self, _ctx: &mut Context, input: KeyInput) -> GameResult {
-        if let KeyInput {
-            keycode: Some(key), ..
-        } = input
-        {
-            if let Some(ch) = keycode_to_char(key) {
-                self.app.handle_released_key(ch);
-            }
+            self.app.run_frame();
         }
 
         Ok(())
@@ -113,7 +64,12 @@ impl EventHandler for AppEventHandler {
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = graphics::Canvas::from_frame(ctx, Color::BLACK);
 
-        let buf = self.app.render_buf();
+        let buf = &self.app.graphics().buf;
+
+        if self.app.graphics().title[..] != self.title[..] {
+            self.title = self.app.graphics().title.clone();
+            ctx.gfx.set_window_title(&self.title);
+        }
 
         let graphics_width = self.scaling * buf.dimensions().0 as f32;
         let graphics_height = self.scaling * buf.dimensions().1 as f32;
@@ -132,7 +88,7 @@ impl EventHandler for AppEventHandler {
 
         for y in 0..buf.dimensions().1 {
             for x in 0..buf.dimensions().0 {
-                let Cell(ch, (r, g, b)) = buf.get_cell((x as i16, y as i16));
+                let Cell(ch, (r, g, b)) = buf.get((x as i16, y as i16)).unwrap();
                 if ch != b' ' {
                     canvas.draw(
                         &Quad,
@@ -160,6 +116,42 @@ impl EventHandler for AppEventHandler {
         }
 
         canvas.finish(ctx)
+    }
+
+    fn key_down_event(
+        &mut self,
+        ctx: &mut Context,
+        input: KeyInput,
+        _repeated: bool,
+    ) -> GameResult {
+        if let KeyInput {
+            keycode: Some(key), ..
+        } = input
+        {
+            if key == KeyCode::Q {
+                ctx.request_quit();
+                return Ok(());
+            }
+
+            if let Some(ch) = keycode_to_char(key) {
+                self.app.handle_pressed_key(ch);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn key_up_event(&mut self, _ctx: &mut Context, input: KeyInput) -> GameResult {
+        if let KeyInput {
+            keycode: Some(key), ..
+        } = input
+        {
+            if let Some(ch) = keycode_to_char(key) {
+                self.app.handle_released_key(ch);
+            }
+        }
+
+        Ok(())
     }
 }
 

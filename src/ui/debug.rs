@@ -1,16 +1,16 @@
-use crate::{App, Cell, ReadRenderBuf};
+use crate::{App, Cell, GraphicsBuf};
 use std::io::Write;
 
 pub fn run_main_loop(mut app: Box<dyn App>) {
     let mut stdout = std::io::stdout();
     let stdin = std::io::stdin();
 
-    println!("Info: {:?}", app.info());
+    println!("Title: {:?}", app.graphics().title);
 
     let mut input = String::new();
 
     loop {
-        dump(app.render_buf());
+        dump(&app.graphics().buf);
         print!("> ");
         stdout.flush().unwrap();
         input.clear();
@@ -21,25 +21,21 @@ pub fn run_main_loop(mut app: Box<dyn App>) {
                 println!("Good bye.");
                 break;
             }
-            if let Some(event) = app.handle_pressed_key(ch) {
-                println!("{:?}", event);
-            }
+            app.handle_pressed_key(ch);
         }
 
-        if let Some(event) = app.run_frame() {
-            println!("{:?}", event);
-        }
+        app.run_frame();
     }
 }
 
-fn dump(buf: &dyn ReadRenderBuf) {
+fn dump(buf: &GraphicsBuf) {
     print!("+");
     print!("{}", "-".repeat(buf.dimensions().0 as usize));
     println!("+");
     for y in 0..buf.dimensions().1 {
         print!("|");
         for x in 0..buf.dimensions().0 {
-            let Cell(char, _color) = buf.get_cell((x as i16, y as i16));
+            let Cell(char, _color) = buf.get((x as i16, y as i16)).unwrap();
             print!("{}", char as char);
         }
         println!("|");

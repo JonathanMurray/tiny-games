@@ -1,16 +1,15 @@
-use crate::apps::{AppEvent, Info, TextBar};
-use crate::translated;
-use crate::{App, Cell, Color, Direction, Point, ReadRenderBuf, RenderBuf};
+use crate::apps::AppInit;
+use crate::{translated, Cell, Graphics, GraphicsBuf, SidePanel};
+use crate::{App, Color, Direction, Point};
 use rand::seq::SliceRandom;
 
-#[derive(Debug)]
 pub struct Snake {
     game_size: (u8, u8),
     alive: bool,
     snake: Vec<Point>,
     direction: Direction,
     food: Point,
-    buf: RenderBuf<Cell>,
+    graphics: Graphics,
 }
 
 const FOOD_SYMBOL: char = 'O';
@@ -18,16 +17,26 @@ const SNAKE_COLOR: Color = (255, 255, 100);
 const FOOD_COLOR: Color = (255, 100, 100);
 
 impl Snake {
-    pub fn new() -> Self {
+    pub fn new() -> (Self, AppInit) {
         let game_size: (u8, u8) = (30, 20);
         let snake_pos: Point = (1, 5);
         let snake = vec![snake_pos];
 
-        let mut buf = RenderBuf::new(game_size);
+        let mut buf = GraphicsBuf::new(game_size);
         let direction = Direction::Right;
         buf.set(
             snake_pos,
             Cell(Self::direction_symbol(direction) as u8, SNAKE_COLOR),
+        );
+
+        let help_text = "Use WASD keys to control the snake!".to_string();
+
+        let graphics = Graphics::new(
+            "Snake".to_string(),
+            Some(SidePanel {
+                help_text: Some(help_text),
+            }),
+            buf,
         );
 
         let mut this = Self {
@@ -36,13 +45,15 @@ impl Snake {
             snake,
             direction,
             food: (3, 5),
-            buf,
+            graphics,
         };
 
         let food = this.pick_new_food_location();
         this.food = food;
-        this.buf.set(food, Cell(FOOD_SYMBOL as u8, FOOD_COLOR));
-        this
+        this.graphics
+            .buf
+            .set(food, Cell(FOOD_SYMBOL as u8, FOOD_COLOR));
+        (this, AppInit { frame_rate: 10 })
     }
 
     fn set_direction(&mut self, direction: Direction) {
@@ -90,33 +101,24 @@ impl Snake {
 }
 
 impl App for Snake {
-    fn info(&self) -> Info {
-        let help_text = "\
-Use WASD keys to control the snake!
-";
-        Info {
-            title: "Snake".to_string(),
-            frame_rate: 10,
-            text_bar: TextBar::Enabled {
-                help_text: Some(help_text.to_string()),
-            },
-        }
-    }
-
-    fn run_frame(&mut self) -> Option<AppEvent> {
+    fn run_frame(&mut self) {
         if !self.alive {
-            return None;
+            return;
         }
 
         let head = *self.snake.last().unwrap();
-        self.buf.set(head, Cell(b'O', SNAKE_COLOR));
+        self.graphics.buf.set(head, Cell(b'O', SNAKE_COLOR));
         let new_head = translated(head, self.direction);
         if self.is_within_game_bounds(new_head) {
             if new_head == self.food {
                 self.food = self.pick_new_food_location();
-                self.buf.set(self.food, Cell(FOOD_SYMBOL as u8, FOOD_COLOR));
+                self.graphics
+                    .buf
+                    .set(self.food, Cell(FOOD_SYMBOL as u8, FOOD_COLOR));
             } else {
-                self.buf.set(self.snake[0], Cell(b' ', (255, 255, 255)));
+                self.graphics
+                    .buf
+                    .set(self.snake[0], Cell(b' ', (255, 255, 255)));
                 self.snake.remove(0);
             }
 
@@ -125,19 +127,20 @@ Use WASD keys to control the snake!
             } else {
                 self.snake.push(new_head);
                 let symbol = Self::direction_symbol(self.direction);
-                self.buf.set(new_head, Cell(symbol as u8, SNAKE_COLOR));
+                self.graphics
+                    .buf
+                    .set(new_head, Cell(symbol as u8, SNAKE_COLOR));
             }
         } else {
             self.alive = false;
         }
 
-        (!self.alive).then_some(AppEvent::SetTitle(format!(
-            "Score: {:?}",
-            self.snake.len() - 1
-        )))
+        if !self.alive {
+            self.graphics.title = format!("Score: {:?}", self.snake.len() - 1);
+        }
     }
 
-    fn handle_pressed_key(&mut self, key: char) -> Option<AppEvent> {
+    fn handle_pressed_key(&mut self, key: char) {
         let direction = match key {
             'w' => Some(Direction::Up),
             'a' => Some(Direction::Left),
@@ -148,10 +151,9 @@ Use WASD keys to control the snake!
         if let Some(direction) = direction {
             self.set_direction(direction);
         }
-        None
     }
 
-    fn render_buf(&self) -> &dyn ReadRenderBuf {
-        &self.buf
+    fn graphics(&self) -> &Graphics {
+        &self.graphics
     }
 }

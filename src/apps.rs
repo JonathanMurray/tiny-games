@@ -1,35 +1,18 @@
 pub mod conway;
+
 pub mod noise;
 pub mod snake;
 pub mod tetris;
 
-use crate::ReadRenderBuf;
+use crate::Graphics;
 
 pub trait App {
-    fn info(&self) -> Info;
-    fn run_frame(&mut self) -> Option<AppEvent>;
-    fn handle_pressed_key(&mut self, _key: char) -> Option<AppEvent> {
-        None
-    }
+    fn run_frame(&mut self);
+    fn handle_pressed_key(&mut self, _key: char) {}
     fn handle_released_key(&mut self, _key: char) {}
-    fn render_buf(&self) -> &dyn ReadRenderBuf;
+    fn graphics(&self) -> &Graphics;
 }
 
-#[derive(Debug)]
-pub struct Info {
-    pub title: String,
+pub struct AppInit {
     pub frame_rate: u32,
-    pub text_bar: TextBar,
-}
-
-#[derive(Debug)]
-pub enum TextBar {
-    Enabled { help_text: Option<String> },
-    Disabled,
-}
-
-#[derive(Debug)]
-
-pub enum AppEvent {
-    SetTitle(String),
 }

@@ -11,7 +11,9 @@ use apps::noise::Noise;
 use apps::snake::Snake;
 use apps::tetris::Tetris;
 use apps::App;
-use ui::{debug, terminal, window};
+use ui::debug;
+use ui::terminal;
+use ui::window;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -22,46 +24,55 @@ fn main() {
         .cloned()
         .unwrap_or_else(|| "terminal".to_string());
 
+    let frame_rate;
+
     let app: Box<dyn App> = match &app_name[..] {
-        "conway" => Box::new(Conway::new(
-            (20, 20),
-            (10, 0),
-            &[
-                (2, 3),
-                (3, 3),
-                (4, 3),
-                (5, 3),
-                (3, 4),
-                (4, 4),
-                (5, 4),
-                (6, 4),
-                (8, 1),
-                (9, 1),
-                (8, 2),
-                (9, 2),
-            ],
-        )),
-        "noise" => Box::new(Noise::new((10, 5))),
-        "snake" => Box::new(Snake::new()),
-        "tetris" => Box::new(Tetris::new()),
+        "conway" => {
+            let (app, app_init) = Conway::new(
+                (20, 20),
+                (10, 0),
+                &[
+                    (2, 3),
+                    (3, 3),
+                    (4, 3),
+                    (5, 3),
+                    (3, 4),
+                    (4, 4),
+                    (5, 4),
+                    (6, 4),
+                    (8, 1),
+                    (9, 1),
+                    (8, 2),
+                    (9, 2),
+                ],
+            );
+            frame_rate = app_init.frame_rate;
+            Box::new(app)
+        }
+
+        "noise" => {
+            let (app, app_init) = Noise::new((10, 5));
+            frame_rate = app_init.frame_rate;
+            Box::new(app)
+        }
+        "snake" => {
+            let (app, app_init) = Snake::new();
+            frame_rate = app_init.frame_rate;
+            Box::new(app)
+        }
+        "tetris" => {
+            let (app, app_init) = Tetris::new();
+            frame_rate = app_init.frame_rate;
+            Box::new(app)
+        }
         unknown => panic!("Unknown app: {}", unknown),
     };
 
     match &ui_type[..] {
-        "window" => window::run_main_loop(app),
+        "window" => window::run_main_loop(app, frame_rate),
         "debug" => debug::run_main_loop(app),
-        "terminal" => terminal::run_main_loop(app),
+        "terminal" => terminal::run_main_loop(app, frame_rate),
         unknown => panic!("Unknown ui: {}", unknown),
-    }
-}
-
-impl From<bool> for Cell {
-    fn from(value: bool) -> Self {
-        if value {
-            Cell(b'#', (255, 255, 255))
-        } else {
-            Cell(b' ', (255, 255, 255))
-        }
     }
 }
 
@@ -77,28 +88,48 @@ pub enum Direction {
 
 pub type Color = (u8, u8, u8);
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Cell(u8, Color);
+pub fn translated(point: Point, direction: Direction) -> Point {
+    let (dx, dy) = match direction {
+        Direction::Up => (0, -1),
+        Direction::Left => (-1, 0),
+        Direction::Down => (0, 1),
+        Direction::Right => (1, 0),
+    };
+    (point.0 + dx, point.1 + dy)
+}
 
-impl Default for Cell {
-    fn default() -> Self {
-        Self(b' ', (255, 255, 255))
+pub struct Graphics {
+    pub title: String,
+    side_panel: Option<SidePanel>,
+    pub buf: GraphicsBuf,
+}
+
+impl Graphics {
+    pub fn new(title: String, side_panel: Option<SidePanel>, graphics: GraphicsBuf) -> Self {
+        Self {
+            title,
+            side_panel,
+            buf: graphics,
+        }
+    }
+
+    pub fn side_panel(&self) -> Option<&SidePanel> {
+        self.side_panel.as_ref()
     }
 }
 
-pub trait ReadRenderBuf {
-    fn get_cell(&self, point: Point) -> Cell;
-
-    fn dimensions(&self) -> (u8, u8);
+#[derive(Debug)]
+pub struct SidePanel {
+    pub help_text: Option<String>,
 }
 
 #[derive(Debug)]
-pub struct RenderBuf<T> {
-    buf: Vec<T>,
+pub struct GraphicsBuf {
+    buf: Vec<Cell>,
     dimensions: (u8, u8),
 }
 
-impl<T: Default + Copy> RenderBuf<T> {
+impl GraphicsBuf {
     pub fn new(dimensions: (u8, u8)) -> Self {
         Self {
             buf: vec![Default::default(); dimensions.0 as usize * dimensions.1 as usize],
@@ -110,16 +141,16 @@ impl<T: Default + Copy> RenderBuf<T> {
         self.dimensions
     }
 
-    pub fn set(&mut self, point: Point, value: T) {
+    pub fn set(&mut self, point: Point, value: Cell) {
         let i = self.buf_index(point).unwrap();
         self.buf[i] = value;
     }
 
-    pub fn set_by_index(&mut self, index: usize, value: T) {
+    pub fn set_by_index(&mut self, index: usize, value: Cell) {
         self.buf[index] = value;
     }
 
-    pub fn get(&self, point: (i16, i16)) -> Option<T> {
+    pub fn get(&self, point: (i16, i16)) -> Option<Cell> {
         self.buf_index(point).map(|i| self.buf[i])
     }
 
@@ -136,22 +167,21 @@ impl<T: Default + Copy> RenderBuf<T> {
     }
 }
 
-impl<T: Into<Cell> + Copy + Default> ReadRenderBuf for RenderBuf<T> {
-    fn get_cell(&self, point: (i16, i16)) -> Cell {
-        self.get(point).unwrap().into()
-    }
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Cell(u8, Color);
 
-    fn dimensions(&self) -> (u8, u8) {
-        self.dimensions
+impl Default for Cell {
+    fn default() -> Self {
+        Self(b' ', (255, 255, 255))
     }
 }
 
-pub fn translated(point: Point, direction: Direction) -> Point {
-    let (dx, dy) = match direction {
-        Direction::Up => (0, -1),
-        Direction::Left => (-1, 0),
-        Direction::Down => (0, 1),
-        Direction::Right => (1, 0),
-    };
-    (point.0 + dx, point.1 + dy)
+impl Cell {
+    pub fn on() -> Self {
+        Self(b'#', (255, 255, 255))
+    }
+
+    pub fn off() -> Self {
+        Self(b' ', (0, 0, 0))
+    }
 }

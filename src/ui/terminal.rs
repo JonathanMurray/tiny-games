@@ -5,8 +5,7 @@ use tui::backend::CrosstermBackend;
 use tui::widgets::{Block, BorderType, Borders, Paragraph, Widget};
 use tui::Terminal;
 
-use crate::apps::{AppEvent, Info, TextBar};
-use crate::{App, Cell, ReadRenderBuf};
+use crate::{App, Cell, Graphics};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use std::cmp::min;
 use std::time::{Duration, Instant};
@@ -15,20 +14,14 @@ use tui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::text::Text;
 
-pub fn run_main_loop(mut app: Box<dyn App>) {
-    let Info {
-        title,
-        frame_rate,
-        text_bar,
-    } = app.info();
+pub fn run_main_loop(mut app: Box<dyn App>, frame_rate: u32) {
+    let help_text = app
+        .graphics()
+        .side_panel()
+        .and_then(|bar| bar.help_text.as_ref().cloned());
 
-    let help_text = match text_bar {
-        TextBar::Enabled { help_text } => help_text,
-        TextBar::Disabled => None,
-    };
-
-    let mut ui = TerminalUi::new(title, help_text);
-    ui.render(app.render_buf());
+    let mut ui = TerminalUi::new(help_text);
+    ui.render(app.graphics());
 
     let mut previous_update = Instant::now();
 
@@ -43,11 +36,7 @@ pub fn run_main_loop(mut app: Box<dyn App>) {
                         return;
                     }
                     InputEvent::KeyPressed(char) => {
-                        if let Some(event) = app.handle_pressed_key(char) {
-                            match event {
-                                AppEvent::SetTitle(title) => ui.set_title(title),
-                            }
-                        }
+                        app.handle_pressed_key(char);
                         // Terminals generally don't emit release events, so
                         // we have to rely on the builtin "repeated key press" event
                         // instead of signalling the accurate duration of a key press
@@ -58,37 +47,27 @@ pub fn run_main_loop(mut app: Box<dyn App>) {
             }
         }
 
-        if let Some(event) = app.run_frame() {
-            match event {
-                AppEvent::SetTitle(title) => ui.set_title(title),
-            }
-        }
+        app.run_frame();
         previous_update = Instant::now();
 
-        // debug_ui::render(app.render_buf());
-        ui.render(app.render_buf());
+        ui.render(app.graphics());
     }
 }
 
 struct TerminalUi {
     terminal: Terminal<CrosstermBackend<Stdout>>,
-    title: String,
     text: Option<String>,
 }
 
 impl TerminalUi {
-    fn new(title: String, text: Option<String>) -> Self {
+    fn new(text: Option<String>) -> Self {
         setup_panic_handler();
         let terminal = claim_terminal(std::io::stdout());
 
-        Self {
-            terminal,
-            title,
-            text,
-        }
+        Self { terminal, text }
     }
 
-    fn render(&mut self, buf: &dyn ReadRenderBuf) {
+    fn render(&mut self, ui: &Graphics) {
         self.terminal
             .draw(|frame| {
                 let graphics_container = Block::default()
@@ -99,7 +78,7 @@ impl TerminalUi {
                     .direction(Direction::Horizontal)
                     .constraints(
                         [
-                            Constraint::Length(buf.dimensions().0 as u16 + 2),
+                            Constraint::Length(ui.buf.dimensions().0 as u16 + 2),
                             Constraint::Min(0),
                         ]
                         .as_ref(),
@@ -110,11 +89,13 @@ impl TerminalUi {
 
                 let header_height = 2;
 
-                graphics_container_rect.width =
-                    min(graphics_container_rect.width, buf.dimensions().0 as u16 + 2);
+                graphics_container_rect.width = min(
+                    graphics_container_rect.width,
+                    ui.buf.dimensions().0 as u16 + 2,
+                );
                 graphics_container_rect.height = min(
                     graphics_container_rect.height,
-                    buf.dimensions().1 as u16 + 2 + header_height,
+                    ui.buf.dimensions().1 as u16 + 2 + header_height,
                 );
 
                 let container_sub_rects = Layout::default()
@@ -125,7 +106,7 @@ impl TerminalUi {
                         horizontal: 1,
                     }));
 
-                let header = Paragraph::new(&self.title[..])
+                let header = Paragraph::new(&ui.title[..])
                     .style(
                         Style::default()
                             .fg(Color::Blue)
@@ -141,7 +122,7 @@ impl TerminalUi {
                 let mut header_rect = header_container_rect;
                 header_rect.height = min(header_rect.height, 1);
 
-                let content = BufWidget(buf);
+                let content = BufWidget(ui);
                 let content_rect = container_sub_rects[1];
 
                 if let Some(text) = self.text.as_deref() {
@@ -201,20 +182,17 @@ impl TerminalUi {
         }
         None
     }
-
-    fn set_title(&mut self, title: String) {
-        self.title = title;
-    }
 }
 
-struct BufWidget<'a>(&'a dyn ReadRenderBuf);
+struct BufWidget<'a>(&'a Graphics);
 
 impl Widget for BufWidget<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        for y in 0..self.0.dimensions().1 {
-            for x in 0..self.0.dimensions().0 {
+        let graphics = &self.0.buf;
+        for y in 0..graphics.dimensions().1 {
+            for x in 0..graphics.dimensions().0 {
                 if (x as u16) < area.width && (y as u16) < area.height {
-                    let Cell(char, (r, g, b)) = self.0.get_cell((x as i16, y as i16));
+                    let Cell(char, (r, g, b)) = graphics.get((x as i16, y as i16)).unwrap();
                     let char = [char];
                     let symbol = std::str::from_utf8(&char).unwrap();
                     buf.get_mut(area.x + x as u16, area.y + y as u16)

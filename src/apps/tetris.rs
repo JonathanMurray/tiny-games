@@ -1,12 +1,11 @@
-use crate::apps::{AppEvent, Info, TextBar};
-use crate::{translated, App, Cell, Color, Direction, Point, ReadRenderBuf, RenderBuf};
+use crate::apps::AppInit;
+use crate::{translated, App, Cell, Color, Direction, Graphics, GraphicsBuf, Point, SidePanel};
 use rand::seq::SliceRandom;
 
 // TODO: Show upcoming tetromino
 
-#[derive(Debug)]
 pub struct Tetris {
-    buf: RenderBuf<Cell>,
+    graphics: Graphics,
     falling: Option<Tetromino>,
     holding_down: bool,
     frame: u32,
@@ -18,25 +17,12 @@ const SYMBOL: u8 = b'#';
 const BLANK_CELL: Cell = Cell(b' ', (255, 255, 255));
 
 impl Tetris {
-    pub fn new() -> Self {
-        let mut buf = RenderBuf::new((10, 20));
+    pub fn new() -> (Self, AppInit) {
+        let mut buf = GraphicsBuf::new((10, 20));
         let falling = generate_next();
         for block in falling.blocks() {
             buf.set(block, Cell(SYMBOL, falling.color()));
         }
-        Self {
-            buf,
-            falling: Some(falling),
-            holding_down: false,
-            frame: 0,
-            fall_delay: 15,
-            score: 0,
-        }
-    }
-}
-
-impl App for Tetris {
-    fn info(&self) -> Info {
         let help_text = "\
 Controls:
 --------
@@ -44,29 +30,42 @@ A: move left
 D: move right
 W: rotate
 S: fall faster
-";
-
-        Info {
-            title: "Tetris".to_string(),
-            frame_rate: 30,
-            text_bar: TextBar::Enabled {
-                help_text: Some(help_text.to_string()),
+"
+        .to_string();
+        let graphics = Graphics::new(
+            "Tetris".to_string(),
+            Some(SidePanel {
+                help_text: Some(help_text),
+            }),
+            buf,
+        );
+        let frame_rate = 30;
+        (
+            Self {
+                graphics,
+                falling: Some(falling),
+                holding_down: false,
+                frame: 0,
+                fall_delay: 15,
+                score: 0,
             },
-        }
+            AppInit { frame_rate },
+        )
     }
+}
 
-    fn run_frame(&mut self) -> Option<AppEvent> {
-        #[allow(clippy::question_mark)]
+impl App for Tetris {
+    fn run_frame(&mut self) {
         if self.falling.is_none() {
             // Game ended in a previous frame
-            return None;
+            return;
         }
 
         self.frame += 1;
 
         if !self.holding_down && self.frame % self.fall_delay != 0 {
             // Simulate slower fall speed by ignoring some frames
-            return None;
+            return;
         }
 
         if !self.try_move(Direction::Down) {
@@ -80,24 +79,22 @@ S: fall faster
             let game_over = self.would_collide(next);
 
             for block in next.blocks() {
-                self.buf.set(block, Cell(SYMBOL, next.color()));
+                self.graphics.buf.set(block, Cell(SYMBOL, next.color()));
             }
 
             if game_over {
-                return Some(AppEvent::SetTitle(format!("Score: {:?}", self.score)));
+                self.graphics.title = format!("Score: {:?}", self.score);
+                return;
             }
 
             self.falling = Some(next);
         }
-
-        None
     }
 
-    fn handle_pressed_key(&mut self, key: char) -> Option<AppEvent> {
-        #[allow(clippy::question_mark)]
+    fn handle_pressed_key(&mut self, key: char) {
         if self.falling.is_none() {
             // Game over
-            return None;
+            return;
         }
         match key {
             'a' => {
@@ -113,12 +110,11 @@ S: fall faster
                 let was_already = self.holding_down;
                 self.holding_down = true;
                 if !was_already {
-                    return self.run_frame();
+                    self.run_frame();
                 }
             }
             _ => {}
         };
-        None
     }
 
     fn handle_released_key(&mut self, key: char) {
@@ -127,8 +123,8 @@ S: fall faster
         }
     }
 
-    fn render_buf(&self) -> &dyn ReadRenderBuf {
-        &self.buf
+    fn graphics(&self) -> &Graphics {
+        &self.graphics
     }
 }
 
@@ -140,10 +136,12 @@ impl Tetris {
             false
         } else {
             for block in self.falling.unwrap().blocks() {
-                self.buf.set(block, BLANK_CELL);
+                self.graphics.buf.set(block, BLANK_CELL);
             }
             for moved_block in moved.blocks() {
-                self.buf.set(moved_block, Cell(SYMBOL, moved.color()));
+                self.graphics
+                    .buf
+                    .set(moved_block, Cell(SYMBOL, moved.color()));
             }
             self.falling = Some(moved);
             true
@@ -155,21 +153,23 @@ impl Tetris {
 
         if !self.would_collide(rotated) {
             for block in self.falling.unwrap().blocks() {
-                self.buf.set(block, BLANK_CELL);
+                self.graphics.buf.set(block, BLANK_CELL);
             }
             for rotated_block in rotated.blocks() {
-                self.buf.set(rotated_block, Cell(SYMBOL, rotated.color()));
+                self.graphics
+                    .buf
+                    .set(rotated_block, Cell(SYMBOL, rotated.color()));
             }
             self.falling = Some(rotated);
         }
     }
 
     fn remove_any_complete_rows(&mut self) {
-        let mut y = self.buf.dimensions().1 as i16 - 1;
+        let mut y = self.graphics.buf.dimensions().1 as i16 - 1;
         while y >= 0 {
             let mut is_complete_row = true;
-            for x in 0..self.buf.dimensions.0 {
-                if self.buf.get((x as i16, y as i16)).unwrap() == BLANK_CELL {
+            for x in 0..self.graphics.buf.dimensions.0 {
+                if self.graphics.buf.get((x as i16, y as i16)).unwrap() == BLANK_CELL {
                     is_complete_row = false;
                     break;
                 }
@@ -181,10 +181,14 @@ impl Tetris {
                 }
                 for shift_y in (0..y + 1).rev() {
                     let shift_y = shift_y as i16;
-                    for x in 0..self.buf.dimensions.0 {
+                    for x in 0..self.graphics.buf.dimensions.0 {
                         let x = x as i16;
-                        let value_above = self.buf.get((x, shift_y - 1)).unwrap_or(BLANK_CELL);
-                        self.buf.set((x, shift_y), value_above);
+                        let value_above = self
+                            .graphics
+                            .buf
+                            .get((x, shift_y - 1))
+                            .unwrap_or(BLANK_CELL);
+                        self.graphics.buf.set((x, shift_y), value_above);
                     }
                 }
             } else {
@@ -201,6 +205,7 @@ impl Tetris {
                 .map(|tetromino| tetromino.blocks().contains(block))
                 .unwrap_or(false);
             let collision = self
+                .graphics
                 .buf
                 .get(*block)
                 .map(|cell| cell != BLANK_CELL)
