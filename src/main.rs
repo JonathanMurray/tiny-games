@@ -8,6 +8,7 @@ mod ui;
 
 use apps::conway::Conway;
 use apps::noise::Noise;
+use apps::particles::Particles;
 use apps::snake::Snake;
 use apps::tetris::Tetris;
 use apps::App;
@@ -65,6 +66,11 @@ fn main() {
             frame_rate = run_config.frame_rate;
             Box::new(app)
         }
+        "particles" => {
+            let (app, run_config) = Particles::new();
+            frame_rate = run_config.frame_rate;
+            Box::new(app)
+        }
         unknown => panic!("Unknown app: {}", unknown),
     };
 
@@ -72,7 +78,7 @@ fn main() {
         "window" => window::run_main_loop(app, frame_rate),
         "debug" => debug::run_main_loop(app),
         "terminal" => {
-            let cell_width = 2;
+            let cell_width = 3;
             terminal::run_main_loop(app, frame_rate, cell_width)
         }
         unknown => panic!("Unknown ui: {}", unknown),
@@ -161,6 +167,10 @@ impl GraphicsBuf {
 
     pub fn get(&self, point: (i16, i16)) -> Option<Cell> {
         self.buf_index(point).map(|i| self.buf[i])
+    }
+
+    pub fn get_by_index(&self, index: usize) -> Cell {
+        self.buf[index]
     }
 
     fn buf_index(&self, pos: (i16, i16)) -> Option<usize> {
