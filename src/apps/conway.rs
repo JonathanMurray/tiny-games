@@ -1,5 +1,5 @@
 use crate::apps::AppInit;
-use crate::{App, Cell, Graphics, GraphicsBuf, Point, SidePanel};
+use crate::{App, Cell, Graphics, GraphicsBuf, PanelItem, Point, SidePanel};
 
 pub struct Conway {
     dimensions: (u8, u8),
@@ -21,7 +21,9 @@ impl Conway {
         let tmp_buf = GraphicsBuf::new(dimensions);
 
         let side_panel = Some(SidePanel {
-            help_text: Some("Conway's game of life".to_string()),
+            items: vec![PanelItem {
+                text: "Conway's game of life".to_string(),
+            }],
         });
 
         let graphics = Graphics::new("Conway".to_string(), side_panel, buf0);

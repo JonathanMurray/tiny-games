@@ -120,7 +120,12 @@ impl Graphics {
 
 #[derive(Debug)]
 pub struct SidePanel {
-    pub help_text: Option<String>,
+    pub items: Vec<PanelItem>,
+}
+
+#[derive(Debug)]
+pub struct PanelItem {
+    pub text: String,
 }
 
 #[derive(Debug)]
@@ -168,6 +173,7 @@ impl GraphicsBuf {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+// TODO: Model Cell better, utilising background color and limited shapes.
 pub struct Cell(u8, Color);
 
 impl Default for Cell {

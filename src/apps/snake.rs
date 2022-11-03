@@ -1,5 +1,5 @@
 use crate::apps::AppInit;
-use crate::{translated, Cell, Graphics, GraphicsBuf, SidePanel};
+use crate::{translated, Cell, Graphics, GraphicsBuf, PanelItem, SidePanel};
 use crate::{App, Color, Direction, Point};
 use rand::seq::SliceRandom;
 
@@ -10,6 +10,7 @@ pub struct Snake {
     direction: Direction,
     food: Point,
     graphics: Graphics,
+    score: u32,
 }
 
 const FOOD_SYMBOL: char = 'O';
@@ -31,10 +32,16 @@ impl Snake {
 
         let help_text = "Use WASD keys to control the snake!".to_string();
 
+        let score = 0;
         let graphics = Graphics::new(
             "Snake".to_string(),
             Some(SidePanel {
-                help_text: Some(help_text),
+                items: vec![
+                    PanelItem {
+                        text: format!("Score: {}", score),
+                    },
+                    PanelItem { text: help_text },
+                ],
             }),
             buf,
         );
@@ -46,6 +53,7 @@ impl Snake {
             direction,
             food: (3, 5),
             graphics,
+            score,
         };
 
         let food = this.pick_new_food_location();
@@ -115,6 +123,9 @@ impl App for Snake {
                 self.graphics
                     .buf
                     .set(self.food, Cell(FOOD_SYMBOL as u8, FOOD_COLOR));
+                self.score += 1;
+                self.graphics.side_panel.as_mut().unwrap().items[0].text =
+                    format!("Score: {}", self.score);
             } else {
                 self.graphics
                     .buf
@@ -136,7 +147,8 @@ impl App for Snake {
         }
 
         if !self.alive {
-            self.graphics.title = format!("Score: {:?}", self.snake.len() - 1);
+            self.graphics.side_panel.as_mut().unwrap().items[0].text =
+                format!("Game over.\nScore: {:?}", self.score);
         }
     }
 

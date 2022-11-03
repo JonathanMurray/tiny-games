@@ -15,12 +15,7 @@ use tui::style::{Color, Modifier, Style};
 use tui::text::Text;
 
 pub fn run_main_loop(mut app: Box<dyn App>, frame_rate: u32) {
-    let help_text = app
-        .graphics()
-        .side_panel()
-        .and_then(|bar| bar.help_text.as_ref().cloned());
-
-    let mut ui = TerminalUi::new(help_text);
+    let mut ui = TerminalUi::new();
     ui.render(app.graphics());
 
     let mut previous_update = Instant::now();
@@ -56,18 +51,17 @@ pub fn run_main_loop(mut app: Box<dyn App>, frame_rate: u32) {
 
 struct TerminalUi {
     terminal: Terminal<CrosstermBackend<Stdout>>,
-    text: Option<String>,
 }
 
 impl TerminalUi {
-    fn new(text: Option<String>) -> Self {
+    fn new() -> Self {
         setup_panic_handler();
         let terminal = claim_terminal(std::io::stdout());
 
-        Self { terminal, text }
+        Self { terminal }
     }
 
-    fn render(&mut self, ui: &Graphics) {
+    fn render(&mut self, graphics: &Graphics) {
         self.terminal
             .draw(|frame| {
                 let graphics_container = Block::default()
@@ -78,7 +72,7 @@ impl TerminalUi {
                     .direction(Direction::Horizontal)
                     .constraints(
                         [
-                            Constraint::Length(ui.buf.dimensions().0 as u16 + 2),
+                            Constraint::Length(graphics.buf.dimensions().0 as u16 + 2),
                             Constraint::Min(0),
                         ]
                         .as_ref(),
@@ -91,11 +85,11 @@ impl TerminalUi {
 
                 graphics_container_rect.width = min(
                     graphics_container_rect.width,
-                    ui.buf.dimensions().0 as u16 + 2,
+                    graphics.buf.dimensions().0 as u16 + 2,
                 );
                 graphics_container_rect.height = min(
                     graphics_container_rect.height,
-                    ui.buf.dimensions().1 as u16 + 2 + header_height,
+                    graphics.buf.dimensions().1 as u16 + 2 + header_height,
                 );
 
                 let container_sub_rects = Layout::default()
@@ -106,7 +100,7 @@ impl TerminalUi {
                         horizontal: 1,
                     }));
 
-                let header = Paragraph::new(&ui.title[..])
+                let header = Paragraph::new(&graphics.title[..])
                     .style(
                         Style::default()
                             .fg(Color::Blue)
@@ -122,22 +116,35 @@ impl TerminalUi {
                 let mut header_rect = header_container_rect;
                 header_rect.height = min(header_rect.height, 1);
 
-                let content = BufWidget(ui);
+                let content = BufWidget(graphics);
                 let content_rect = container_sub_rects[1];
 
-                if let Some(text) = self.text.as_deref() {
-                    let mut rect = horizontal_sub_rects[1];
+                if let Some(panel) = graphics.side_panel() {
+                    let side_panel_rect = horizontal_sub_rects[1];
 
-                    let text_container = Block::default()
-                        .borders(Borders::ALL)
-                        .border_type(BorderType::Rounded);
-                    let text: Text = text.into();
+                    let mut constraints: Vec<Constraint> = vec![];
+                    let mut texts: Vec<Text> = vec![];
 
-                    rect.height = min(rect.height, text.height() as u16 + 2);
-                    rect.width = min(rect.width, text.width() as u16 + 2);
+                    for item in &panel.items {
+                        let text: Text = item.text[..].into();
+                        constraints.push(Constraint::Length(text.height() as u16 + 2));
+                        texts.push(text);
+                    }
 
-                    let text = Paragraph::new(text).block(text_container);
-                    frame.render_widget(text, rect);
+                    let panel_item_rects = Layout::default()
+                        .direction(Direction::Vertical)
+                        .constraints(constraints)
+                        .split(side_panel_rect);
+
+                    for (i, text) in texts.into_iter().enumerate() {
+                        let text_container = Block::default()
+                            .borders(Borders::ALL)
+                            .border_type(BorderType::Rounded);
+                        let mut rect = panel_item_rects[i];
+                        rect.height = min(rect.height, text.height() as u16 + 2);
+                        rect.width = min(rect.width, text.width() as u16 + 2);
+                        frame.render_widget(Paragraph::new(text).block(text_container), rect);
+                    }
                 }
 
                 frame.render_widget(graphics_container, graphics_container_rect);

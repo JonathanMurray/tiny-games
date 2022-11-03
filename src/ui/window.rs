@@ -31,13 +31,10 @@ pub fn run_main_loop(app: Box<dyn App>, frame_rate: u32) -> ! {
         .build()
         .unwrap();
 
-    let help_text = side_panel.and_then(|bar| bar.help_text.as_ref().cloned());
-
     let event_handler = AppEventHandler {
         app,
         scaling: CELL_SIZE,
         frame_rate,
-        help_text,
         title,
     };
 
@@ -48,7 +45,6 @@ struct AppEventHandler {
     app: Box<dyn App>,
     scaling: f32,
     frame_rate: u32,
-    help_text: Option<String>,
     title: String,
 }
 
@@ -104,15 +100,20 @@ impl EventHandler for AppEventHandler {
             }
         }
 
-        if let Some(text) = &self.help_text {
-            let mut text = Text::new(text);
-            text.set_scale(30.0)
-                .set_bounds([TEXT_AREA_WIDTH, graphics_height]);
-            canvas.draw(
-                &text,
-                DrawParam::default()
-                    .dest([GRAPHICS_MARGIN * 2.0 + graphics_width, GRAPHICS_MARGIN]),
-            );
+        if let Some(panel) = self.app.graphics().side_panel() {
+            let mut y = GRAPHICS_MARGIN;
+            let margin = 10.0;
+            for item in &panel.items {
+                let mut text = Text::new(&item.text);
+                text.set_scale(30.0)
+                    .set_bounds([TEXT_AREA_WIDTH, graphics_height]);
+                let text_size = text.measure(ctx).unwrap();
+                canvas.draw(
+                    &text,
+                    DrawParam::default().dest([GRAPHICS_MARGIN * 2.0 + graphics_width, y]),
+                );
+                y += text_size.y + margin;
+            }
         }
 
         canvas.finish(ctx)

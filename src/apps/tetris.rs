@@ -1,5 +1,7 @@
 use crate::apps::AppInit;
-use crate::{translated, App, Cell, Color, Direction, Graphics, GraphicsBuf, Point, SidePanel};
+use crate::{
+    translated, App, Cell, Color, Direction, Graphics, GraphicsBuf, PanelItem, Point, SidePanel,
+};
 use rand::seq::SliceRandom;
 
 // TODO: Show upcoming tetromino
@@ -32,10 +34,16 @@ W: rotate
 S: fall faster
 "
         .to_string();
+        let score = 0;
         let graphics = Graphics::new(
             "Tetris".to_string(),
             Some(SidePanel {
-                help_text: Some(help_text),
+                items: vec![
+                    PanelItem {
+                        text: format!("Score: {}", score),
+                    },
+                    PanelItem { text: help_text },
+                ],
             }),
             buf,
         );
@@ -47,7 +55,7 @@ S: fall faster
                 holding_down: false,
                 frame: 0,
                 fall_delay: 15,
-                score: 0,
+                score,
             },
             AppInit { frame_rate },
         )
@@ -83,7 +91,8 @@ impl App for Tetris {
             }
 
             if game_over {
-                self.graphics.title = format!("Score: {:?}", self.score);
+                self.graphics.side_panel.as_mut().unwrap().items[0].text =
+                    format!("Game over.\nScore: {:?}", self.score);
                 return;
             }
 
@@ -96,6 +105,7 @@ impl App for Tetris {
             // Game over
             return;
         }
+        // TODO handle hold down movement
         match key {
             'a' => {
                 self.try_move(Direction::Left);
@@ -176,6 +186,8 @@ impl Tetris {
             }
             if is_complete_row {
                 self.score += 1;
+                self.graphics.side_panel.as_mut().unwrap().items[0].text =
+                    format!("Score: {:?}", self.score);
                 if self.score % 2 == 0 {
                     self.fall_delay = std::cmp::max(1, self.fall_delay - 1);
                 }
