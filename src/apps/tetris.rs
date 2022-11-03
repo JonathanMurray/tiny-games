@@ -4,11 +4,10 @@ use crate::{
 };
 use rand::seq::SliceRandom;
 
-// TODO: Show upcoming tetromino
-
 pub struct Tetris {
     graphics: Graphics,
     falling: Option<Tetromino>,
+    upcoming: Shape,
     holding_down: bool,
     frame: u32,
     fall_delay: u32,
@@ -21,7 +20,7 @@ const BLANK_CELL: Cell = Cell(b' ', (255, 255, 255));
 impl Tetris {
     pub fn new() -> (Self, AppInit) {
         let mut buf = GraphicsBuf::new((10, 20));
-        let falling = generate_next();
+        let falling = Tetromino::at_top(generate_next());
         for block in falling.blocks() {
             buf.set(block, Cell(SYMBOL, falling.color()));
         }
@@ -35,23 +34,33 @@ S: fall faster
 "
         .to_string();
         let score = 0;
+        let upcoming = generate_next();
+        let mut upcoming_buf = GraphicsBuf::new((4, 2));
+        Self::render_upcoming_buf(upcoming, &mut upcoming_buf);
+
         let graphics = Graphics::new(
             "Tetris".to_string(),
             Some(SidePanel {
                 items: vec![
-                    PanelItem {
+                    PanelItem::TextItem {
                         text: format!("Score: {}", score),
                     },
-                    PanelItem { text: help_text },
+                    PanelItem::TextItem {
+                        text: "Next:".to_string(),
+                    },
+                    PanelItem::GraphicsItem { buf: upcoming_buf },
+                    PanelItem::TextItem { text: help_text },
                 ],
             }),
             buf,
         );
         let frame_rate = 30;
+
         (
             Self {
                 graphics,
                 falling: Some(falling),
+                upcoming,
                 holding_down: false,
                 frame: 0,
                 fall_delay: 15,
@@ -59,6 +68,19 @@ S: fall faster
             },
             AppInit { frame_rate },
         )
+    }
+
+    fn render_upcoming_buf(shape: Shape, buf: &mut GraphicsBuf) {
+        {
+            for i in 0..buf.dimensions().0 * buf.dimensions().1 {
+                buf.set_by_index(i as usize, Cell::off());
+            }
+
+            let tetromino = Tetromino::in_upcoming_hint(shape);
+            for point in tetromino.blocks() {
+                buf.set(point, Cell(SYMBOL, tetromino.color()));
+            }
+        }
     }
 }
 
@@ -82,7 +104,14 @@ impl App for Tetris {
             self.remove_any_complete_rows();
 
             self.falling = None;
-            let next = generate_next();
+            let next = Tetromino::at_top(self.upcoming);
+            self.upcoming = generate_next();
+            match &mut self.graphics.side_panel.as_mut().unwrap().items[2] {
+                PanelItem::GraphicsItem { buf } => {
+                    Self::render_upcoming_buf(self.upcoming, buf);
+                }
+                unexpected => panic!("Unexpected panel item: {:?}", unexpected),
+            }
 
             let game_over = self.would_collide(next);
 
@@ -91,8 +120,10 @@ impl App for Tetris {
             }
 
             if game_over {
-                self.graphics.side_panel.as_mut().unwrap().items[0].text =
-                    format!("Game over.\nScore: {:?}", self.score);
+                self.graphics.side_panel.as_mut().unwrap().items[0] = PanelItem::TextItem {
+                    text: format!("Game over.\nScore: {:?}", self.score),
+                };
+
                 return;
             }
 
@@ -186,8 +217,9 @@ impl Tetris {
             }
             if is_complete_row {
                 self.score += 1;
-                self.graphics.side_panel.as_mut().unwrap().items[0].text =
-                    format!("Score: {:?}", self.score);
+                self.graphics.side_panel.as_mut().unwrap().items[0] = PanelItem::TextItem {
+                    text: format!("Score: {:?}", self.score),
+                };
                 if self.score % 2 == 0 {
                     self.fall_delay = std::cmp::max(1, self.fall_delay - 1);
                 }
@@ -256,6 +288,24 @@ impl Tetromino {
             Shape::Z => (4, -1),
             Shape::J => (4, -1),
             Shape::L => (4, -1),
+        };
+        Self {
+            origin,
+            orientation,
+            shape,
+        }
+    }
+
+    fn in_upcoming_hint(shape: Shape) -> Self {
+        let orientation = Orientation::First;
+        let origin = match shape {
+            Shape::I => (0, -2),
+            Shape::O => (0, 0),
+            Shape::T => (0, -1),
+            Shape::S => (0, -1),
+            Shape::Z => (0, -1),
+            Shape::J => (0, -1),
+            Shape::L => (0, -1),
         };
         Self {
             origin,
@@ -364,7 +414,7 @@ impl Orientation {
     }
 }
 
-fn generate_next() -> Tetromino {
+fn generate_next() -> Shape {
     let shapes = [
         Shape::I,
         Shape::O,
@@ -375,7 +425,5 @@ fn generate_next() -> Tetromino {
         Shape::L,
     ];
 
-    let shape = *shapes.choose(&mut rand::thread_rng()).unwrap();
-
-    Tetromino::at_top(shape)
+    *shapes.choose(&mut rand::thread_rng()).unwrap()
 }

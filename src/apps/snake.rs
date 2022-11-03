@@ -37,10 +37,10 @@ impl Snake {
             "Snake".to_string(),
             Some(SidePanel {
                 items: vec![
-                    PanelItem {
+                    PanelItem::TextItem {
                         text: format!("Score: {}", score),
                     },
-                    PanelItem { text: help_text },
+                    PanelItem::TextItem { text: help_text },
                 ],
             }),
             buf,
@@ -124,8 +124,9 @@ impl App for Snake {
                     .buf
                     .set(self.food, Cell(FOOD_SYMBOL as u8, FOOD_COLOR));
                 self.score += 1;
-                self.graphics.side_panel.as_mut().unwrap().items[0].text =
-                    format!("Score: {}", self.score);
+                self.graphics.side_panel.as_mut().unwrap().items[0] = PanelItem::TextItem {
+                    text: format!("Score: {}", self.score),
+                };
             } else {
                 self.graphics
                     .buf
@@ -147,8 +148,9 @@ impl App for Snake {
         }
 
         if !self.alive {
-            self.graphics.side_panel.as_mut().unwrap().items[0].text =
-                format!("Game over.\nScore: {:?}", self.score);
+            self.graphics.side_panel.as_mut().unwrap().items[0] = PanelItem::TextItem {
+                text: format!("Game over.\nScore: {:?}", self.score),
+            };
         }
     }
 

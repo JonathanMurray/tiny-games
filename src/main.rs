@@ -124,8 +124,9 @@ pub struct SidePanel {
 }
 
 #[derive(Debug)]
-pub struct PanelItem {
-    pub text: String,
+pub enum PanelItem {
+    TextItem { text: String },
+    GraphicsItem { buf: GraphicsBuf },
 }
 
 #[derive(Debug)]

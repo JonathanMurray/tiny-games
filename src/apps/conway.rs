@@ -21,7 +21,7 @@ impl Conway {
         let tmp_buf = GraphicsBuf::new(dimensions);
 
         let side_panel = Some(SidePanel {
-            items: vec![PanelItem {
+            items: vec![PanelItem::TextItem {
                 text: "Conway's game of life".to_string(),
             }],
         });

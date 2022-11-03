@@ -1,11 +1,11 @@
 use ggez::conf::{WindowMode, WindowSetup};
 use ggez::event::{self, EventHandler};
-use ggez::graphics::{self, Color, DrawMode, DrawParam, Mesh, Quad, Rect, Text};
+use ggez::graphics::{self, Canvas, Color, DrawMode, DrawParam, Mesh, Quad, Rect, Text};
 use ggez::input::keyboard::{KeyCode, KeyInput};
 use ggez::{Context, ContextBuilder, GameResult};
 
-use crate::App;
-use crate::Cell;
+use crate::{App, PanelItem};
+use crate::{Cell, GraphicsBuf};
 
 const GRAPHICS_MARGIN: f32 = 10.0;
 const CELL_SIZE: f32 = 30.0;
@@ -82,37 +82,27 @@ impl EventHandler for AppEventHandler {
             DrawParam::default().dest([GRAPHICS_MARGIN, GRAPHICS_MARGIN]),
         );
 
-        for y in 0..buf.dimensions().1 {
-            for x in 0..buf.dimensions().0 {
-                let Cell(ch, (r, g, b)) = buf.get((x as i16, y as i16)).unwrap();
-                if ch != b' ' {
-                    canvas.draw(
-                        &Quad,
-                        DrawParam::default()
-                            .color(Color::from_rgb(r, g, b))
-                            .scale([self.scaling, self.scaling])
-                            .dest([
-                                GRAPHICS_MARGIN + self.scaling * x as f32,
-                                GRAPHICS_MARGIN + self.scaling * y as f32,
-                            ]),
-                    );
-                }
-            }
-        }
+        self.render_buf(&mut canvas, buf, [GRAPHICS_MARGIN, GRAPHICS_MARGIN]);
 
         if let Some(panel) = self.app.graphics().side_panel() {
             let mut y = GRAPHICS_MARGIN;
-            let margin = 10.0;
+            let margin = 20.0;
             for item in &panel.items {
-                let mut text = Text::new(&item.text);
-                text.set_scale(30.0)
-                    .set_bounds([TEXT_AREA_WIDTH, graphics_height]);
-                let text_size = text.measure(ctx).unwrap();
-                canvas.draw(
-                    &text,
-                    DrawParam::default().dest([GRAPHICS_MARGIN * 2.0 + graphics_width, y]),
-                );
-                y += text_size.y + margin;
+                let destination = [GRAPHICS_MARGIN * 2.0 + graphics_width, y];
+                match item {
+                    PanelItem::TextItem { text } => {
+                        let mut text = Text::new(text);
+                        text.set_scale(30.0)
+                            .set_bounds([TEXT_AREA_WIDTH, graphics_height]);
+                        let text_size = text.measure(ctx).unwrap();
+                        canvas.draw(&text, DrawParam::default().dest(destination));
+                        y += text_size.y + margin;
+                    }
+                    PanelItem::GraphicsItem { buf } => {
+                        self.render_buf(&mut canvas, buf, destination);
+                        y += buf.dimensions.1 as f32 * self.scaling + margin;
+                    }
+                }
             }
         }
 
@@ -153,6 +143,28 @@ impl EventHandler for AppEventHandler {
         }
 
         Ok(())
+    }
+}
+
+impl AppEventHandler {
+    fn render_buf(&self, canvas: &mut Canvas, buf: &GraphicsBuf, destination: [f32; 2]) {
+        for y in 0..buf.dimensions().1 {
+            for x in 0..buf.dimensions().0 {
+                let Cell(ch, (r, g, b)) = buf.get((x as i16, y as i16)).unwrap();
+                if ch != b' ' {
+                    canvas.draw(
+                        &Quad,
+                        DrawParam::default()
+                            .color(Color::from_rgb(r, g, b))
+                            .scale([self.scaling, self.scaling])
+                            .dest([
+                                destination[0] + self.scaling * x as f32,
+                                destination[1] + self.scaling * y as f32,
+                            ]),
+                    );
+                }
+            }
+        }
     }
 }
 

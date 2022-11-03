@@ -5,9 +5,9 @@ use tui::backend::CrosstermBackend;
 use tui::widgets::{Block, BorderType, Borders, Paragraph, Widget};
 use tui::Terminal;
 
-use crate::{App, Cell, Graphics};
+use crate::{App, Cell, Graphics, GraphicsBuf, PanelItem};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::time::{Duration, Instant};
 use tui::buffer::Buffer;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
@@ -116,19 +116,38 @@ impl TerminalUi {
                 let mut header_rect = header_container_rect;
                 header_rect.height = min(header_rect.height, 1);
 
-                let content = BufWidget(graphics);
+                let content = BufWidget(&graphics.buf);
                 let content_rect = container_sub_rects[1];
 
                 if let Some(panel) = graphics.side_panel() {
                     let side_panel_rect = horizontal_sub_rects[1];
 
                     let mut constraints: Vec<Constraint> = vec![];
-                    let mut texts: Vec<Text> = vec![];
+                    let mut widgets: Vec<(PanelItemWidget, (u16, u16))> = vec![];
+                    let mut max_width = 0;
 
                     for item in &panel.items {
-                        let text: Text = item.text[..].into();
-                        constraints.push(Constraint::Length(text.height() as u16 + 2));
-                        texts.push(text);
+                        match item {
+                            PanelItem::TextItem { text } => {
+                                let text: Text = text[..].into();
+                                let text_container = Block::default()
+                                    .borders(Borders::TOP)
+                                    .border_type(BorderType::Double);
+                                constraints.push(Constraint::Length(text.height() as u16 + 1));
+                                let size = (text.width() as u16, text.height() as u16 + 1);
+                                max_width = max(max_width, size.0);
+                                let paragraph = Paragraph::new(text).block(text_container);
+                                widgets.push((PanelItemWidget::Paragraph(paragraph), size));
+                            }
+                            PanelItem::GraphicsItem { buf } => {
+                                constraints.push(Constraint::Length(buf.dimensions().1 as u16));
+                                let buf_widget = BufWidget(buf);
+                                widgets.push((
+                                    PanelItemWidget::Buf(buf_widget),
+                                    (buf.dimensions().0 as u16, buf.dimensions().1 as u16),
+                                ))
+                            }
+                        }
                     }
 
                     let panel_item_rects = Layout::default()
@@ -136,14 +155,19 @@ impl TerminalUi {
                         .constraints(constraints)
                         .split(side_panel_rect);
 
-                    for (i, text) in texts.into_iter().enumerate() {
-                        let text_container = Block::default()
-                            .borders(Borders::ALL)
-                            .border_type(BorderType::Rounded);
+                    for (i, (widget, size)) in widgets.into_iter().enumerate() {
                         let mut rect = panel_item_rects[i];
-                        rect.height = min(rect.height, text.height() as u16 + 2);
-                        rect.width = min(rect.width, text.width() as u16 + 2);
-                        frame.render_widget(Paragraph::new(text).block(text_container), rect);
+                        rect.width = min(rect.width, max_width);
+                        rect.height = min(rect.height, size.1);
+
+                        match widget {
+                            PanelItemWidget::Buf(widget) => {
+                                frame.render_widget(widget, rect);
+                            }
+                            PanelItemWidget::Paragraph(widget) => {
+                                frame.render_widget(widget, rect);
+                            }
+                        }
                     }
                 }
 
@@ -191,15 +215,21 @@ impl TerminalUi {
     }
 }
 
-struct BufWidget<'a>(&'a Graphics);
+// This needs to be an enum because Frame::render_widget doesn't
+// accept trait objects.
+enum PanelItemWidget<'a> {
+    Buf(BufWidget<'a>),
+    Paragraph(Paragraph<'a>),
+}
+
+struct BufWidget<'a>(&'a GraphicsBuf);
 
 impl Widget for BufWidget<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let graphics = &self.0.buf;
-        for y in 0..graphics.dimensions().1 {
-            for x in 0..graphics.dimensions().0 {
+        for y in 0..self.0.dimensions().1 {
+            for x in 0..self.0.dimensions().0 {
                 if (x as u16) < area.width && (y as u16) < area.height {
-                    let Cell(char, (r, g, b)) = graphics.get((x as i16, y as i16)).unwrap();
+                    let Cell(char, (r, g, b)) = self.0.get((x as i16, y as i16)).unwrap();
                     let char = [char];
                     let symbol = std::str::from_utf8(&char).unwrap();
                     buf.get_mut(area.x + x as u16, area.y + y as u16)
