@@ -1,4 +1,4 @@
-use crate::apps::AppInit;
+use crate::apps::RunConfig;
 use crate::{translated, Cell, Graphics, GraphicsBuf, PanelItem, SidePanel};
 use crate::{App, Color, Direction, Point};
 use rand::seq::SliceRandom;
@@ -17,7 +17,7 @@ const SNAKE_COLOR: Color = (255, 255, 100);
 const FOOD_COLOR: Color = (255, 100, 100);
 
 impl Snake {
-    pub fn new() -> (Self, AppInit) {
+    pub fn new() -> (Self, RunConfig) {
         let game_size: (u8, u8) = (30, 20);
         let snake_pos: Point = (1, 5);
         let snake = vec![snake_pos];
@@ -55,7 +55,7 @@ impl Snake {
         let food = this.pick_new_food_location();
         this.food = food;
         this.graphics.buf.set(food, Cell::Colored(FOOD_COLOR));
-        (this, AppInit { frame_rate: 10 })
+        (this, RunConfig { frame_rate: 10 })
     }
 
     fn set_direction(&mut self, direction: Direction) {

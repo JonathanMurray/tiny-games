@@ -13,6 +13,6 @@ pub trait App {
     fn graphics(&self) -> &Graphics;
 }
 
-pub struct AppInit {
+pub struct RunConfig {
     pub frame_rate: u32,
 }

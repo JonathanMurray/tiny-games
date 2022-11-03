@@ -1,4 +1,4 @@
-use crate::apps::AppInit;
+use crate::apps::RunConfig;
 use crate::{App, Cell, Graphics, GraphicsBuf, PanelItem, Point, SidePanel};
 
 pub struct Conway {
@@ -12,7 +12,7 @@ impl Conway {
         dimensions: (u8, u8),
         cells_offset: (i16, i16),
         live_cells: &[(i16, i16)],
-    ) -> (Self, AppInit) {
+    ) -> (Self, RunConfig) {
         let mut buf0 = GraphicsBuf::new(dimensions);
         for &cell in live_cells {
             let cell = (cell.0 + cells_offset.0, cell.1 + cells_offset.1);
@@ -27,7 +27,7 @@ impl Conway {
         });
 
         let graphics = Graphics::new("Conway".to_string(), side_panel, buf0);
-        let app_init = AppInit { frame_rate: 10 };
+        let run_config = RunConfig { frame_rate: 10 };
 
         (
             Self {
@@ -35,7 +35,7 @@ impl Conway {
                 graphics,
                 tmp_buf,
             },
-            app_init,
+            run_config,
         )
     }
 

@@ -1,4 +1,4 @@
-use crate::apps::AppInit;
+use crate::apps::RunConfig;
 use crate::{App, Cell, Graphics, GraphicsBuf};
 use rand::Rng;
 
@@ -8,20 +8,20 @@ pub struct Noise {
 }
 
 impl Noise {
-    pub fn new(dimensions: (u8, u8)) -> (Self, AppInit) {
+    pub fn new(dimensions: (u8, u8)) -> (Self, RunConfig) {
         let buf = GraphicsBuf::new(dimensions);
         let mut empty_indices = vec![];
         for i in 0..buf.buf.len() {
             empty_indices.push(i as usize);
         }
         let graphics = Graphics::new("Noise".to_string(), None, buf);
-        let app_init = AppInit { frame_rate: 15 };
+        let run_config = RunConfig { frame_rate: 15 };
         (
             Self {
                 graphics,
                 empty_indices,
             },
-            app_init,
+            run_config,
         )
     }
 }

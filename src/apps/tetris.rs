@@ -1,4 +1,4 @@
-use crate::apps::AppInit;
+use crate::apps::RunConfig;
 use crate::{
     translated, App, Cell, Color, Direction, Graphics, GraphicsBuf, PanelItem, Point, SidePanel,
 };
@@ -15,7 +15,7 @@ pub struct Tetris {
 }
 
 impl Tetris {
-    pub fn new() -> (Self, AppInit) {
+    pub fn new() -> (Self, RunConfig) {
         let mut buf = GraphicsBuf::new((10, 20));
         let falling = Tetromino::at_top(generate_next());
         for block in falling.blocks() {
@@ -63,7 +63,7 @@ S: fall faster
                 fall_delay: 15,
                 score,
             },
-            AppInit { frame_rate },
+            RunConfig { frame_rate },
         )
     }
 

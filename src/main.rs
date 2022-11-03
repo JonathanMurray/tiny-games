@@ -28,7 +28,7 @@ fn main() {
 
     let app: Box<dyn App> = match &app_name[..] {
         "conway" => {
-            let (app, app_init) = Conway::new(
+            let (app, run_config) = Conway::new(
                 (20, 20),
                 (10, 0),
                 &[
@@ -46,23 +46,23 @@ fn main() {
                     (9, 2),
                 ],
             );
-            frame_rate = app_init.frame_rate;
+            frame_rate = run_config.frame_rate;
             Box::new(app)
         }
 
         "noise" => {
-            let (app, app_init) = Noise::new((10, 5));
-            frame_rate = app_init.frame_rate;
+            let (app, run_config) = Noise::new((10, 5));
+            frame_rate = run_config.frame_rate;
             Box::new(app)
         }
         "snake" => {
-            let (app, app_init) = Snake::new();
-            frame_rate = app_init.frame_rate;
+            let (app, run_config) = Snake::new();
+            frame_rate = run_config.frame_rate;
             Box::new(app)
         }
         "tetris" => {
-            let (app, app_init) = Tetris::new();
-            frame_rate = app_init.frame_rate;
+            let (app, run_config) = Tetris::new();
+            frame_rate = run_config.frame_rate;
             Box::new(app)
         }
         unknown => panic!("Unknown app: {}", unknown),
