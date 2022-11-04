@@ -8,13 +8,26 @@ pub struct Conway {
 }
 
 impl Conway {
-    pub fn new(
-        dimensions: (u8, u8),
-        cells_offset: (i16, i16),
-        live_cells: &[(i16, i16)],
-    ) -> (Self, RunConfig) {
+    pub fn new() -> (Self, RunConfig) {
+        let dimensions = (20, 20);
+        let cells_offset = (10, 0);
+        let live_cells = [
+            (2, 3),
+            (3, 3),
+            (4, 3),
+            (5, 3),
+            (3, 4),
+            (4, 4),
+            (5, 4),
+            (6, 4),
+            (8, 1),
+            (9, 1),
+            (8, 2),
+            (9, 2),
+        ];
+
         let mut buf0 = GraphicsBuf::new(dimensions);
-        for &cell in live_cells {
+        for cell in &live_cells {
             let cell = (cell.0 + cells_offset.0, cell.1 + cells_offset.1);
             buf0.set(cell, Cell::filled());
         }

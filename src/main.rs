@@ -6,6 +6,7 @@ extern crate tui;
 mod apps;
 mod ui;
 
+use crate::apps::RunConfig;
 use apps::conway::Conway;
 use apps::noise::Noise;
 use apps::particles::Particles;
@@ -20,73 +21,46 @@ use ui::window;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    let app_name = args.get(1).cloned().unwrap_or_else(|| "snake".to_string());
-    let ui_type = args
-        .get(2)
-        .cloned()
-        .unwrap_or_else(|| "terminal".to_string());
+    let app_name = args.get(1).cloned().unwrap_or_else(|| "tetris".to_string());
+    let ui_type = args.get(2).cloned().unwrap_or_else(|| "window".to_string());
 
-    let frame_rate;
-
-    let app: Box<dyn App> = match &app_name[..] {
+    let (app, run_config): (Box<dyn App>, RunConfig) = match &app_name[..] {
         "conway" => {
-            let (app, run_config) = Conway::new(
-                (20, 20),
-                (10, 0),
-                &[
-                    (2, 3),
-                    (3, 3),
-                    (4, 3),
-                    (5, 3),
-                    (3, 4),
-                    (4, 4),
-                    (5, 4),
-                    (6, 4),
-                    (8, 1),
-                    (9, 1),
-                    (8, 2),
-                    (9, 2),
-                ],
-            );
-            frame_rate = run_config.frame_rate;
-            Box::new(app)
+            let (app, run_config) = Conway::new();
+            (Box::new(app), run_config)
         }
-
         "noise" => {
-            let (app, run_config) = Noise::new((10, 5));
-            frame_rate = run_config.frame_rate;
-            Box::new(app)
+            let (app, run_config) = Noise::new();
+            (Box::new(app), run_config)
         }
         "snake" => {
             let (app, run_config) = Snake::new();
-            frame_rate = run_config.frame_rate;
-            Box::new(app)
+            (Box::new(app), run_config)
         }
         "tetris" => {
             let (app, run_config) = Tetris::new();
-            frame_rate = run_config.frame_rate;
-            Box::new(app)
+            (Box::new(app), run_config)
         }
         "particles" => {
             let (app, run_config) = Particles::new();
-            frame_rate = run_config.frame_rate;
-            Box::new(app)
+            (Box::new(app), run_config)
         }
         "race" => {
             let (app, run_config) = Race::new();
-            frame_rate = run_config.frame_rate;
-            Box::new(app)
+            (Box::new(app), run_config)
         }
         unknown => panic!("Unknown app: {}", unknown),
     };
 
+    let frame_rate = run_config.frame_rate;
+
     match &ui_type[..] {
         "window" => window::run_main_loop(app, frame_rate),
-        "debug" => debug::run_main_loop(app),
         "terminal" => {
             let cell_width = 3;
             terminal::run_main_loop(app, frame_rate, cell_width)
         }
+        "debug" => debug::run_main_loop(app),
         unknown => panic!("Unknown ui: {}", unknown),
     }
 }

@@ -8,7 +8,8 @@ pub struct Noise {
 }
 
 impl Noise {
-    pub fn new(dimensions: (u8, u8)) -> (Self, RunConfig) {
+    pub fn new() -> (Self, RunConfig) {
+        let dimensions = (10, 5);
         let buf = GraphicsBuf::new(dimensions);
         let mut empty_indices = vec![];
         for i in 0..buf.buf.len() {
