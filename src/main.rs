@@ -18,50 +18,84 @@ use ui::debug;
 use ui::terminal;
 use ui::window;
 
+use clap::Parser;
+
+/// Tiny games, played in a window or right in your terminal!
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// What game to run
+    #[arg(value_enum, default_value = "tetris")]
+    app: AppName,
+
+    /// How to run the game
+    #[arg(short, long, value_enum, default_value = "window")]
+    runtime: Runtime,
+
+    /// In the terminal, how many characters wide should each game cell be
+    #[arg(short, long, default_value = "3")]
+    cell_width: u16,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+enum AppName {
+    Tetris,
+    Snake,
+    Conway,
+    Noise,
+    Race,
+    Particles,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+enum Runtime {
+    Window,
+    Terminal,
+    Debug,
+}
+
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    let args = Args::parse();
 
-    let app_name = args.get(1).cloned().unwrap_or_else(|| "tetris".to_string());
-    let ui_type = args.get(2).cloned().unwrap_or_else(|| "window".to_string());
+    let app_name = args.app;
+    let runtime = args.runtime;
 
-    let (app, run_config): (Box<dyn App>, RunConfig) = match &app_name[..] {
-        "conway" => {
+    let (app, run_config): (Box<dyn App>, RunConfig) = match app_name {
+        AppName::Conway => {
             let (app, run_config) = Conway::new();
             (Box::new(app), run_config)
         }
-        "noise" => {
+        AppName::Noise => {
             let (app, run_config) = Noise::new();
             (Box::new(app), run_config)
         }
-        "snake" => {
+        AppName::Snake => {
             let (app, run_config) = Snake::new();
             (Box::new(app), run_config)
         }
-        "tetris" => {
+        AppName::Tetris => {
             let (app, run_config) = Tetris::new();
             (Box::new(app), run_config)
         }
-        "particles" => {
+        AppName::Particles => {
             let (app, run_config) = Particles::new();
             (Box::new(app), run_config)
         }
-        "race" => {
+        AppName::Race => {
             let (app, run_config) = Race::new();
             (Box::new(app), run_config)
         }
-        unknown => panic!("Unknown app: {}", unknown),
     };
 
     let frame_rate = run_config.frame_rate;
 
-    match &ui_type[..] {
-        "window" => window::run_main_loop(app, frame_rate),
-        "terminal" => {
-            let cell_width = 3;
+    match runtime {
+        Runtime::Window => window::run_main_loop(app, frame_rate),
+        Runtime::Terminal => {
+            let cell_width = args.cell_width;
             terminal::run_main_loop(app, frame_rate, cell_width)
         }
-        "debug" => debug::run_main_loop(app),
-        unknown => panic!("Unknown ui: {}", unknown),
+        Runtime::Debug => debug::run_main_loop(app),
     }
 }
 

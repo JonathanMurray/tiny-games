@@ -1,4 +1,5 @@
-use crate::{App, GraphicsBuf};
+use crate::{App, Cell, GraphicsBuf};
+use crossterm::style::{Color, Print, ResetColor, SetBackgroundColor};
 use std::io::Write;
 
 pub fn run_main_loop(mut app: Box<dyn App>) {
@@ -29,6 +30,7 @@ pub fn run_main_loop(mut app: Box<dyn App>) {
 }
 
 fn dump(buf: &GraphicsBuf) {
+    let mut stdout = std::io::stdout();
     print!("+");
     print!("{}", "-".repeat(buf.dimensions().0 as usize));
     println!("+");
@@ -36,7 +38,18 @@ fn dump(buf: &GraphicsBuf) {
         print!("|");
         for x in 0..buf.dimensions().0 {
             let cell = buf.get((x as i16, y as i16)).unwrap();
-            print!("{:?}", cell);
+            match cell {
+                Cell::Blank => print!(" "),
+                Cell::Colored(color) => {
+                    crossterm::execute!(
+                        stdout,
+                        SetBackgroundColor(Color::from(color)),
+                        Print(" ".to_string()),
+                        ResetColor
+                    )
+                    .unwrap();
+                }
+            }
         }
         println!("|");
     }
