@@ -140,6 +140,8 @@ impl TerminalUi {
                             }
                             PanelItem::GraphicsItem { buf } => {
                                 constraints.push(Constraint::Length(buf.dimensions().1 as u16));
+                                max_width =
+                                    max(max_width, buf.dimensions.0 as u16 * self.cell_width);
                                 let buf_widget = BufWidget {
                                     app_buf: buf,
                                     cell_width: self.cell_width,
@@ -234,12 +236,12 @@ impl Widget for BufWidget<'_> {
         for y in 0..self.app_buf.dimensions().1 as u16 {
             for app_x in 0..self.app_buf.dimensions().0 as u16 {
                 let x = app_x * self.cell_width;
-                if x < area.width && y < area.height {
-                    let app_cell = self.app_buf.get((app_x as i16, y as i16)).unwrap();
-                    match app_cell {
-                        Cell::Blank => {}
-                        Cell::Colored((r, g, b)) => {
-                            for sub_cell_x in x..x + self.cell_width {
+                let app_cell = self.app_buf.get((app_x as i16, y as i16)).unwrap();
+                match app_cell {
+                    Cell::Blank => {}
+                    Cell::Colored((r, g, b)) => {
+                        for sub_cell_x in x..x + self.cell_width {
+                            if sub_cell_x < area.width && y < area.height {
                                 buf.get_mut(area.x + sub_cell_x, area.y + y)
                                     .set_bg(Color::Rgb(r, g, b));
                             }

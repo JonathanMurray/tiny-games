@@ -9,6 +9,7 @@ mod ui;
 use apps::conway::Conway;
 use apps::noise::Noise;
 use apps::particles::Particles;
+use apps::race::Race;
 use apps::snake::Snake;
 use apps::tetris::Tetris;
 use apps::App;
@@ -71,6 +72,11 @@ fn main() {
             frame_rate = run_config.frame_rate;
             Box::new(app)
         }
+        "race" => {
+            let (app, run_config) = Race::new();
+            frame_rate = run_config.frame_rate;
+            Box::new(app)
+        }
         unknown => panic!("Unknown app: {}", unknown),
     };
 
@@ -130,6 +136,22 @@ impl Graphics {
 #[derive(Debug)]
 pub struct SidePanel {
     pub items: Vec<PanelItem>,
+}
+
+impl SidePanel {
+    pub fn unwrap_graphics_item_mut(&mut self, index: usize) -> &mut GraphicsBuf {
+        match &mut self.items[index] {
+            PanelItem::TextItem { .. } => panic!("Expected graphics"),
+            PanelItem::GraphicsItem { buf } => buf,
+        }
+    }
+
+    pub fn unwrap_text_item_mut(&mut self, index: usize) -> &mut String {
+        match &mut self.items[index] {
+            PanelItem::TextItem { text } => text,
+            PanelItem::GraphicsItem { .. } => panic!("Expected text"),
+        }
+    }
 }
 
 #[derive(Debug)]

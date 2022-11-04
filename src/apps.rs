@@ -2,6 +2,7 @@ pub mod conway;
 
 pub mod noise;
 pub mod particles;
+pub mod race;
 pub mod snake;
 pub mod tetris;
 
