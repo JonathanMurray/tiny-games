@@ -29,7 +29,7 @@ struct Args {
     app: AppName,
 
     /// How to run the game
-    #[arg(short, long, value_enum, default_value = "window")]
+    #[arg(short, long, value_enum, default_value = "terminal")]
     runtime: Runtime,
 
     /// In the terminal, how many characters wide should each game cell be
